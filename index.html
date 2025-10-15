@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Epicor ERP on Hyper-V: SQL Performance Troubleshooting Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        nav {
+            background: white;
+            position: sticky;
+            top: 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+
+        .nav-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem 2rem;
+            display: flex;
+            gap: 2rem;
+            overflow-x: auto;
+        }
+
+        .nav-content a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            white-space: nowrap;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .nav-content a:hover {
+            background: #f0f0f0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .section {
+            background: white;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        h2 {
+            color: #667eea;
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 3px solid #667eea;
+        }
+
+        h3 {
+            color: #764ba2;
+            font-size: 1.5rem;
+            margin: 2rem 0 1rem 0;
+        }
+
+        h4 {
+            color: #555;
+            font-size: 1.2rem;
+            margin: 1.5rem 0 0.5rem 0;
+        }
+
+        p {
+            margin-bottom: 1rem;
+        }
+
+        ul, ol {
+            margin-left: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 1.5rem;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .code-block code {
+            font-family: inherit;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .warning-box {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .success-box {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .checklist {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+        }
+
+        .checklist li {
+            list-style: none;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .checklist li:before {
+            content: "☐";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-size: 1.2rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            background: white;
+        }
+
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+
+        .footer {
+            background: #2d2d2d;
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .badge-sql {
+            background: #00758f;
+            color: white;
+        }
+
+        .badge-powershell {
+            background: #012456;
+            color: white;
+        }
+
+        .badge-critical {
+            background: #d32f2f;
+            color: white;
+        }
+
+        .badge-recommended {
+            background: #388e3c;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.75rem;
+            }
+            
+            .nav-content {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .section {
+                padding: 1rem;
+            }
+            
+            .code-block {
+                font-size: 0.8rem;
+                padding: 1rem;
+            }
+        }
+
+        .toc {
+            background: #f9f9f9;
+            border: 2px solid #667eea;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .toc h3 {
+            color: #667eea;
+            margin-top: 0;
+        }
+
+        .toc ul {
+            margin-left: 1rem;
+        }
+
+        .toc a {
+            color: #764ba2;
+            text-decoration: none;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>Epicor ERP on Hyper-V</h1>
+            <p>SQL Performance Troubleshooting Guide</p>
+        </div>
+    </div>
+
+    <nav>
+        <div class="nav-content">
+            <a href="#overview">Overview</a>
+            <a href="#sql-testing">SQL Testing</a>
+            <a href="#hyperv-practices">Hyper-V Practices</a>
+            <a href="#epicor">Epicor Specific</a>
+            <a href="#troubleshooting">Troubleshooting</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="section" id="overview">
+            <h2>Executive Summary</h2>
+            <p>This guide provides systematic troubleshooting steps for Epicor ERP performance issues in Hyper-V environments, focusing on SQL Server performance testing and configuration best practices.</p>
+            
+            <div class="toc">
+                <h3>Table of Contents</h3>
+                <ul>
+                    <li><a href="#part1">Part 1: SQL Server Performance Testing</a></li>
+                    <li><a href="#part2">Part 2: Hyper-V Best Practices for SQL Server</a></li>
+                    <li><a href="#part3">Part 3: Epicor-Specific Considerations</a></li>
+                    <li><a href="#part4">Part 4: Troubleshooting Checklist</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section" id="part1">
+            <h2>Part 1: SQL Server Performance Testing</h2>
+
+            <h3>1.1 Baseline Performance Metrics Collection</h3>
+            
+            <h4>Check Current Wait Statistics</h4>
+            <span class="badge badge-sql">SQL</span>
+            <div class="code-block"><code>-- Check current wait statistics
+SELECT TOP 20
+    wait_type,
+    wait_time_ms / 1000.0 AS wait_time_seconds,
+    waiting_tasks_count,
+    wait_time_ms / waiting_tasks_count AS avg_wait_time_ms
+FROM sys.dm_os_wait_stats
+WHERE waiting_tasks_count > 0
+    AND wait_type NOT IN (
+        'CLR_SEMAPHORE', 'LAZYWRITER_SLEEP', 'RESOURCE_QUEUE',
+        'SLEEP_TASK', 'SLEEP_SYSTEMTASK', 'SQLTRACE_BUFFER_FLUSH',
+        'WAITFOR', 'LOGMGR_QUEUE', 'CHECKPOINT_QUEUE',
+        'REQUEST_FOR_DEADLOCK_SEARCH', 'XE_TIMER_EVENT', 'BROKER_TO_FLUSH',
+        'BROKER_TASK_STOP', 'CLR_MANUAL_EVENT', 'CLR_AUTO_EVENT',
+        'DISPATCHER_QUEUE_SEMAPHORE', 'FT_IFTS_SCHEDULER_IDLE_WAIT',
+        'XE_DISPATCHER_WAIT', 'XE_DISPATCHER_JOIN', 
+        'SQLTRACE_INCREMENTAL_FLUSH_SLEEP'
+    )
+ORDER BY wait_time_ms DESC;</code></div>
+
+            <h4>Check CPU and Memory Pressure</h4>
+            <span class="badge badge-sql">SQL</span>
+            <div class="code-block"><code>-- Check CPU and memory pressure
+SELECT 
+    cpu_count AS logical_cpu_count,
+    hyperthread_ratio,
+    cpu_count/hyperthread_ratio AS physical_cpu_count,
+    physical_memory_kb/1024 AS physical_memory_mb
+FROM sys.dm_os_sys_info;
+
+-- Memory clerks
+SELECT TOP 10
+    type,
+    SUM(pages_kb)/1024 AS memory_mb
+FROM sys.dm_os_memory_clerks
+GROUP BY type
+ORDER BY SUM(pages_kb) DESC;</code></div>
+
+            <h3>1.2 Disk I/O Performance Testing</h3>
+            
+            <h4>Check Current I/O Statistics</h4>
+            <span class="badge badge-sql">SQL</span>
+            <div class="code-block"><code>-- Database file I/O statistics
+SELECT 
+    DB_NAME(database_id) AS database_name,
+    file_id,
+    io_stall_read_ms,
+    num_of_reads,
+    CAST(io_stall_read_ms/(1.0 + num_of_reads) AS NUMERIC(10,1)) AS avg_read_stall_ms,
+    io_stall_write_ms,
+    num_of_writes,
+    CAST(io_stall_write_ms/(1.0 + num_of_writes) AS NUMERIC(10,1)) AS avg_write_stall_ms,
+    io_stall_read_ms + io_stall_write_ms AS io_stalls,
+    num_of_reads + num_of_writes AS total_io
+FROM sys.dm_io_virtual_file_stats(null,null)
+ORDER BY io_stall_read_ms + io_stall_write_ms DESC;</code></div>
+
+            <h4>Run DiskSpd Test (on Hyper-V host)</h4>
+            <span class="badge badge-powershell">PowerShell</span>
+            <div class="code-block"><code># Download DiskSpd from Microsoft
+# Test sequential read performance
+diskspd.exe -c10G -d60 -W60 -t4 -o32 -b64K -Sr -w0 testfile.dat
+
+# Test sequential write performance
+diskspd.exe -c10G -d60 -W60 -t4 -o32 -b64K -Sw -w100 testfile.dat
+
+# Test random I/O (similar to SQL workload)
+diskspd.exe -c10G -d60 -W60 -t4 -o32 -b8K -r -w30 testfile.dat</code></div>
+
+            <div class="success-box">
+                <strong>Performance Targets:</strong>
+                <ul>
+                    <li>Average read latency: &lt; 10ms (&lt; 5ms ideal)</li>
+                    <li>Average write latency: &lt; 10ms (&lt; 5ms ideal)</li>
+                    <li>Transaction log writes: &lt; 5ms</li>
+                </ul>
+            </div>
+
+            <h3>1.3 Query Performance Analysis</h3>
+            
+            <h4>Identify Slow Queries - Top by CPU</h4>
+            <span class="badge badge-sql">SQL</span>
+            <div class="code-block"><code>-- Top queries by CPU
+SELECT TOP 20
+    qs.execution_count,
+    qs.total_worker_time / 1000 AS total_cpu_ms,
+    qs.total_worker_time / qs.execution_count / 1000 AS avg_cpu_ms,
+    qs.total_elapsed_time / 1000 AS total_elapsed_ms,
+    qs.total_elapsed_time / qs.execution_count / 1000 AS avg_elapsed_ms,
+    SUBSTRING(qt.text, (qs.statement_start_offset/2)+1,
+        ((CASE qs.statement_end_offset
+            WHEN -1 THEN DATALENGTH(qt.text)
+            ELSE qs.statement_end_offset
+        END - qs.statement_start_offset)/2) + 1) AS statement_text
+FROM sys.dm_exec_query_stats qs
+CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) qt
+ORDER BY qs.total_worker_time DESC;</code></div>
+
+            <h4>Top Queries by I/O</h4>
+            <span class="badge badge-sql">SQL</span>
+            <div class="code-block"><code>-- Top queries by I/O
+SELECT TOP 20
+    qs.execution_count,
+    qs.total_logical_reads,
+    qs.total_logical_reads / qs.execution_count AS avg_logical_reads,
+    qs.total_physical_reads,
+    qs.total_physical_reads / qs.execution_count AS avg_physical_reads,
+    SUBSTRING(qt.text, (qs.statement_start_offset/2)+1,
+        ((CASE qs.statement_end_offset
+            WHEN -1 THEN DATALENGTH(qt.text)
+            ELSE qs.statement_end_offset
+        END - qs.statement_start_offset)/2) + 1) AS statement_text
+FROM sys.dm_exec_query_stats qs
+CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) qt
+ORDER BY qs.total_logical_reads DESC;</code></div>
+
+            <h4>Check for Missing Indexes</h4>
+            <span class="badge badge-sql">SQL</span>
+            <div class="code-block"><code>SELECT 
+    CONVERT(decimal(18,2), user_seeks * avg_total_user_cost * 
+        (avg_user_impact * 0.01)) AS index_advantage,
+    migs.last_user_seek,
+    mid.statement AS table_name,
+    mid.equality_columns,
+    mid.inequality_columns,
+    mid.included_columns
+FROM sys.dm_db_missing_index_group_stats AS migs
+INNER JOIN sys.dm_db_missing_index_groups AS mig
+    ON migs.group_handle = mig.index_group_handle
+INNER JOIN sys.dm_db_missing_index_details AS mid
+    ON mig.index_handle = mid.index_handle
+ORDER BY index_advantage DESC;</code></div>
+
+            <h3>1.4 Blocking and Deadlock Analysis</h3>
+            
+            <h4>Check Active Blocking</h4>
+            <span class="badge badge-sql">SQL</span>
+            <div class="code-block"><code>SELECT 
+    t1.resource_type,
+    t1.resource_database_id,
+    t1.resource_associated_entity_id,
+    t1.request_mode,
+    t1.request_session_id,
+    t2.blocking_session_id,
+    s1.login_name AS blocked_user,
+    s2.login_name AS blocking_user,
+    s1.host_name AS blocked_host,
+    s2.host_name AS blocking_host
+FROM sys.dm_tran_locks AS t1
+INNER JOIN sys.dm_os_waiting_tasks AS t2
+    ON t1.lock_owner_address = t2.resource_address
+LEFT JOIN sys.dm_exec_sessions AS s1
+    ON t1.request_session_id = s1.session_id
+LEFT JOIN sys.dm_exec_sessions AS s2
+    ON t2.blocking_session_id = s2.session_id;</code></div>
+
+            <h4>Enable Deadlock Trace</h4>
+            <span class="badge badge-sql">SQL</span>
+            <div class="code-block"><code>-- Enable trace flag 1222 for deadlock logging
+DBCC TRACEON (1222, -1);</code></div>
+
+            <h3>1.5 TempDB Performance</h3>
+            
+            <h4>Check TempDB Contention</h4>
+            <span class="badge badge-sql">SQL</span>
+            <div class="code-block"><code>SELECT 
+    session_id,
+    wait_type,
+    wait_duration_ms,
+    blocking_session_id,
+    resource_description
+FROM sys.dm_os_waiting_tasks
+WHERE wait_type LIKE 'PAGE%LATCH_%'
+    AND resource_description LIKE '2:%';</code></div>
+        </div>
+
+        <div class="section" id="part2">
+            <h2>Part 2: Hyper-V Best Practices for SQL Server</h2>
+
+            <h3>2.1 Virtual Machine Configuration</h3>
+            
+            <div class="info-box">
+                <strong>CPU Configuration Best Practices:</strong>
+                <ul>
+                    <li>Assign dedicated CPU cores (not oversubscribed)</li>
+                    <li>Use static memory allocation, not dynamic memory</li>
+                    <li>Enable NUMA spanning only if SQL Server doesn't have enough memory in a single node</li>
+                    <li>Recommended: Physical cores = vCPUs (avoid oversubscription for SQL VMs)</li>
+                </ul>
+            </div>
+
+            <h4>PowerShell Configuration</h4>
+            <span class="badge badge-powershell">PowerShell</span>
+            <div class="code-block"><code># Disable dynamic memory
+Set-VMMemory -VMName "EpicorSQL" -DynamicMemoryEnabled $false -StartupBytes 32GB
+
+# Set processor configuration
+Set-VMProcessor -VMName "EpicorSQL" -Count 8 -Reserve 100 -Maximum 100
+
+# Enable MAC address spoofing if needed for clustering
+Set-VMNetworkAdapter -VMName "EpicorSQL" -MacAddressSpoofing On</code></div>
+
+            <h3>2.2 Storage Configuration</h3>
+            
+            <h4>Storage Type Comparison</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Performance</th>
+                        <th>Use Case</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Pass-through disks</strong></td>
+                        <td>Best</td>
+                        <td>Recommended for production</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Fixed VHDX</strong></td>
+                        <td>Good</td>
+                        <td>Acceptable for production</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Dynamic VHDX</strong></td>
+                        <td>Poor</td>
+                        <td>Avoid for SQL Server</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="warning-box">
+                <strong>Storage Layout Best Practices:</strong>
+                <br>Separate VHDx/Disks for:
+                <ul>
+                    <li>Operating System (C:)</li>
+                    <li>SQL Data files (D:)</li>
+                    <li>SQL Log files (L:)</li>
+                    <li>TempDB (T:)</li>
+                    <li>SQL Backups (B:)</li>
+                </ul>
+            </div>
+
+            <h4>Storage Controller Configuration</h4>
+            <ul>
+                <li>Use SCSI controllers (not IDE)</li>
+                <li>Spread disks across multiple controllers for better throughput</li>
+            </ul>
+
+            <span class="badge badge-powershell">PowerShell</span>
+            <div class="code-block"><code># Add SCSI controller
+Add-VMScsiController -VMName "EpicorSQL"
+
+# Add fixed VHDX for data files
+New-VHD -Path "E:\Hyper-V\EpicorSQL\Data.vhdx" -SizeBytes 500GB -Fixed
+Add-VMHardDiskDrive -VMName "EpicorSQL" -ControllerType SCSI `
+    -ControllerNumber 1 -Path "E:\Hyper-V\EpicorSQL\Data.vhdx"
+
+# Add fixed VHDX for log files
+New-VHD -Path "E:\Hyper-V\EpicorSQL\Logs.vhdx" -SizeBytes 100GB -Fixed
+Add-VMHardDiskDrive -VMName "EpicorSQL" -ControllerType SCSI `
+    -ControllerNumber 1 -Path "E:\Hyper-V\EpicorSQL\Logs.vhdx"</code></div>
+
+            <h3>2.3 Host-Level Optimizations</h3>
+            
+            <h4>Disable Unnecessary Services</h4>
+            <ul>
+                <li>Windows Search</li>
+                <li>Superfetch</li>
+                <li>Windows Defender (if using third-party AV)</li>
+            </ul>
+
+            <h4>Set High Performance Power Plan</h4>
+            <span class="badge badge-powershell">PowerShell</span>
+            <div class="code-block"><code># Set to High Performance
+powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c</code></div>
+
+            <h4>Hyper-V Host Storage Best Practices</h4>
+            <ul>
+                <li>Use RAID 10 for best SQL Server performance</li>
+                <li>Avoid RAID 5/6 for transaction logs</li>
+                <li>Consider SSD/NVMe for data and logs</li>
+                <li>Use separate physical storage for each virtual disk when possible</li>
+            </ul>
+
+            <h4>CSV Cache Configuration (Clustered Environments)</h4>
+            <p>Enable CSV cache for read-intensive workloads. Size appropriately (typically 20-50% of host RAM).</p>
+            
+            <span class="badge badge-powershell">PowerShell</span>
+            <div class="code-block"><code># Enable and configure CSV cache (8GB example)
+(Get-Cluster).BlockCacheSize = 8192  # in MB</code></div>
+
+            <h3>2.4 Network Configuration</h3>
+            
+            <div class="info-box">
+                <strong>Best Practices:</strong>
+                <ul>
+                    <li>Use dedicated network adapters for different traffic types</li>
+                    <li>Enable SR-IOV if supported by network adapters</li>
+                    <li>Use RSS (Receive Side Scaling)</li>
+                </ul>
+            </div>
+
+            <span class="badge badge-powershell">PowerShell</span>
+            <div class="code-block"><code># Enable SR-IOV on virtual network adapter
+Set-VMNetworkAdapter -VMName "EpicorSQL" -IovWeight 100</code></div>
+
+            <h3>2.5 SQL Server Guest Configuration</h3>
+            
+            <h4>Enable Instant File Initialization</h4>
+            <ol>
+                <li>Run secpol.msc</li>
+                <li>Navigate to: Local Policies > User Rights Assignment</li>
+                <li>Add SQL Server service account to "Perform volume maintenance tasks"</li>
+                <li>Restart SQL Server service</li>
+            </ol>
+
+            <h4>Enable Lock Pages in Memory</h4>
+            <ol>
+                <li>Run secpol.msc</li>
+                <li>Navigate to: Local Policies > User Rights Assignment</li>
+                <li>Add SQL Server service account to "Lock pages in memory"</li>
+                <li>Restart SQL Server service</li>
+            </ol>
+
+            <h4>SQL Server Configuration</h4>
+            <span class="badge badge-sql">SQL</span>
+            <div class="code-block"><code>-- Set max server memory (leave 4-8GB for OS)
+EXEC sp_configure 'max server memory (MB)', 28672;  -- Example for 32GB VM
+RECONFIGURE;
+
+-- Set cost threshold for parallelism
+EXEC sp_configure 'cost threshold for parallelism', 50;
+RECONFIGURE;
+
+-- Set max degree of parallelism (typically cores per NUMA node)
+EXEC sp_configure 'max degree of parallelism', 4;
+RECONFIGURE;
+
+-- Enable optimize for ad hoc workloads
+EXEC sp_configure 'optimize for ad hoc workloads', 1;
+RECONFIGURE;</code></div>
+
+            <h4>TempDB Configuration</h4>
+            <span class="badge badge-recommended">Recommended</span>
+            <ul>
+                <li>Number of files = number of CPU cores (up to 8, then add in increments of 4 if needed)</li>
+                <li>All files same size with equal autogrowth</li>
+                <li>Place on separate fast storage</li>
+            </ul>
+
+            <span class="badge badge-sql">SQL</span>
+            <div class="code-block"><code>-- Example for 8 core system
+ALTER DATABASE tempdb MODIFY FILE (
+    NAME = tempdev, SIZE = 8GB, FILEGROWTH = 512MB);
+
+ALTER DATABASE tempdb ADD FILE (
+    NAME = tempdev2, FILENAME = 'T:\tempdb2.ndf', 
+    SIZE = 8GB, FILEGROWTH = 512MB);
+
+ALTER DATABASE tempdb ADD FILE (
+    NAME = tempdev3, FILENAME = 'T:\tempdb3.ndf', 
+    SIZE = 8GB, FILEGROWTH = 512MB);
+
+-- Continue for remaining cores...</code></div>
+
+            <h3>2.6 Monitoring and Maintenance</h3>
+            
+            <h4>Host Performance Counters to Monitor</h4>
+            <div class="code-block"><code>\Hyper-V Hypervisor Logical Processor(_Total)\% Total Run Time
+\Hyper-V Hypervisor Virtual Processor(*)\% Total Run Time
+\Hyper-V Dynamic Memory VM(*)\Physical Memory
+\Hyper-V Virtual Storage Device(*)\Read Operations/Sec
+\Hyper-V Virtual Storage Device(*)\Write Operations/Sec
+\Hyper-V Virtual Storage Device(*)\Read Bytes/sec
+\Hyper-V Virtual Storage Device(*)\Write Bytes/sec</code></div>
+
+            <h4>SQL Server Performance Counters</h4>
+            <div class="code-block"><code>SQLServer:Buffer Manager\Page life expectancy (>300 is good)
+SQLServer:Memory Manager\Memory Grants Pending (0 is ideal)
+SQLServer:SQL Statistics\Batch Requests/sec
+SQLServer:SQL Statistics\SQL Compilations/sec
+SQLServer:General Statistics\User Connections
+SQLServer:Locks(_Total)\Lock Waits/sec
+SQLServer:Access Methods\Page Splits/sec</code></div>
+        </div>
+
+        <div class="section" id="part3">
+            <h2>Part 3: Epicor-Specific Considerations</h2>
+
+            <h3>3.1 Epicor Database Maintenance</h3>
+            
+            <span class="badge badge-recommended">Recommended</span>
+            <ul>
+                <li>Rebuild indexes weekly during maintenance window</li>
+                <li>Update statistics daily or after large data operations</li>
+            </ul>
+
+            <h4>Epicor Index Maintenance Script</h4>
+            <span class="badge badge-sql">SQL</span>
+            <div class="code-block"><code>-- Epicor index maintenance script
+USE [EpicorDB];
+GO
+
+-- Rebuild fragmented indexes
+DECLARE @TableName VARCHAR(255);
+DECLARE @sql NVARCHAR(MAX);
+DECLARE @fillfactor INT = 90;
+
+DECLARE TableCursor CURSOR FOR 
+SELECT DISTINCT OBJECT_NAME(object_id)
+FROM sys.dm_db_index_physical_stats(DB_ID(), NULL, NULL, NULL, 'SAMPLED')
+WHERE avg_fragmentation_in_percent > 30
+    AND page_count > 1000;
+
+OPEN TableCursor;
+FETCH NEXT FROM TableCursor INTO @TableName;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @sql = 'ALTER INDEX ALL ON ' + @TableName + 
+        ' REBUILD WITH (FILLFACTOR = ' + CAST(@fillfactor AS VARCHAR(3)) + 
+        ', ONLINE = ON);'
+    EXEC sp_executesql @sql;
+    FETCH NEXT FROM TableCursor INTO @TableName;
+END
+
+CLOSE TableCursor;
+DEALLOCATE TableCursor;
+
+-- Update all statistics
+EXEC sp_updatestats;</code></div>
+
+            <h3>3.2 Epicor Application Server Configuration</h3>
+            
+            <h4>Connection Pooling</h4>
+            <ul>
+                <li>Verify connection pooling is enabled in Epicor application configuration</li>
+                <li>Monitor open connections vs available</li>
+            </ul>
+
+            <h4>Application Server Memory</h4>
+            <ul>
+                <li>Ensure adequate memory allocated (16GB+ recommended per app server)</li>
+                <li>Monitor .NET memory usage and garbage collection</li>
+            </ul>
+
+            <h3>3.3 Common Epicor Performance Issues</h3>
+            
+            <h4>Issue 1: Slow Report Generation</h4>
+            <div class="warning-box">
+                <strong>Symptoms:</strong> Reports taking excessive time to generate
+                <br><br>
+                <strong>Solutions:</strong>
+                <ul>
+                    <li>Check for missing indexes on report queries</li>
+                    <li>Verify TempDB performance</li>
+                    <li>Review SSRS configuration</li>
+                </ul>
+            </div>
+
+            <h4>Issue 2: Slow MRP/Scheduling</h4>
+            <div class="warning-box">
+                <strong>Symptoms:</strong> MRP processing takes hours
+                <br><br>
+                <strong>Solutions:</strong>
+                <ul>
+                    <li>These are CPU-intensive operations</li>
+                    <li>Ensure VM has dedicated CPU cores</li>
+                    <li>Check for CPU wait times during runs</li>
+                </ul>
+            </div>
+
+            <h4>Issue 3: Slow BAQ Performance</h4>
+            <div class="warning-box">
+                <strong>Symptoms:</strong> Business Activity Queries running slowly
+                <br><br>
+                <strong>Solutions:</strong>
+                <ul>
+                    <li>Review BAQ execution plans</li>
+                    <li>Check for table scans</li>
+                    <li>Implement appropriate indexes</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section" id="part4">
+            <h2>Part 4: Troubleshooting Checklist</h2>
+
+            <h3>Quick Diagnostic Steps</h3>
+
+            <h4>Step 1: Host Resource Check</h4>
+            <div class="checklist">
+                <ul>
+                    <li>Check host CPU utilization (should be &lt;80%)</li>
+                    <li>Verify host memory availability</li>
+                    <li>Check storage queue depths</li>
+                    <li>Review Hyper-V event logs</li>
+                </ul>
+            </div>
+
+            <h4>Step 2: VM Resource Check</h4>
+            <div class="checklist">
+                <ul>
+                    <li>Verify VM has adequate CPU (no stealing)</li>
+                    <li>Check VM memory allocation (static, not dynamic)</li>
+                    <li>Review VM network throughput</li>
+                    <li>Check disk latency inside VM</li>
+                </ul>
+            </div>
+
+            <h4>Step 3: SQL Server Health</h4>
+            <div class="checklist">
+                <ul>
+                    <li>Review wait statistics</li>
+                    <li>Check buffer cache hit ratio (&gt;90%)</li>
+                    <li>Verify page life expectancy (&gt;300 seconds)</li>
+                    <li>Review current blocking</li>
+                    <li>Check error logs for issues</li>
+                </ul>
+            </div>
+
+            <h4>Step 4: Epicor Application</h4>
+            <div class="checklist">
+                <ul>
+                    <li>Review Epicor server logs</li>
+                    <li>Check application server CPU/memory</li>
+                    <li>Verify connection pool health</li>
+                    <li>Test network latency between app and SQL servers</li>
+                </ul>
+            </div>
+
+            <h4>Step 5: Workload Analysis</h4>
+            <div class="checklist">
+                <ul>
+                    <li>Identify peak usage times</li>
+                    <li>Review slow query patterns</li>
+                    <li>Check for batch job conflicts</li>
+                    <li>Analyze user concurrency</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Additional Resources</h2>
+
+            <h3>Microsoft Documentation</h3>
+            <ul>
+                <li><a href="https://docs.microsoft.com/sql/sql-server/" target="_blank">SQL Server on Hyper-V Best Practices</a></li>
+                <li><a href="https://docs.microsoft.com/windows-server/" target="_blank">Hyper-V Performance Tuning</a></li>
+            </ul>
+
+            <h3>Epicor Resources</h3>
+            <ul>
+                <li>Contact Epicor Support for specific ERP performance tuning guides</li>
+                <li>Review Epicor KB articles for known performance issues</li>
+            </ul>
+
+            <h3>Tools</h3>
+            <ul>
+                <li>SQL Server Management Studio (SSMS)</li>
+                <li>Performance Monitor (PerfMon)</li>
+                <li>SQL Server Profiler / Extended Events</li>
+                <li>DiskSpd (Microsoft)</li>
+                <li>Epicor System Monitor</li>
+            </ul>
+
+            <h3>Performance Targets Summary</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Target</th>
+                        <th>Critical Threshold</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Page Life Expectancy</td>
+                        <td>&gt; 300 seconds</td>
+                        <td>&lt; 300 seconds</td>
+                    </tr>
+                    <tr>
+                        <td>Buffer Cache Hit Ratio</td>
+                        <td>&gt; 90%</td>
+                        <td>&lt; 90%</td>
+                    </tr>
+                    <tr>
+                        <td>Disk Read Latency</td>
+                        <td>&lt; 5ms</td>
+                        <td>&gt; 20ms</td>
+                    </tr>
+                    <tr>
+                        <td>Disk Write Latency</td>
+                        <td>&lt; 5ms</td>
+                        <td>&gt; 20ms</td>
+                    </tr>
+                    <tr>
+                        <td>Log Write Latency</td>
+                        <td>&lt; 3ms</td>
+                        <td>&gt; 5ms</td>
+                    </tr>
+                    <tr>
+                        <td>Host CPU Utilization</td>
+                        <td>&lt; 70%</td>
+                        <td>&gt; 85%</td>
+                    </tr>
+                    <tr>
+                        <td>Memory Grants Pending</td>
+                        <td>0</td>
+                        <td>&gt; 0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Conclusion</h2>
+            <p>This guide provides a systematic approach to diagnosing and resolving Epicor ERP performance issues on Hyper-V. Start with baseline metrics, identify bottlenecks through the testing procedures, and apply the relevant best practices.</p>
+            
+            <div class="success-box">
+                <strong>Key Takeaways:</strong>
+                <ul>
+                    <li>Performance tuning is iterative—make one change at a time and measure the impact</li>
+                    <li>Always collect baseline metrics before making changes</li>
+                    <li>Disable Dynamic Memory for SQL Server VMs</li>
+                    <li>Use Fixed VHDx or pass-through disks for production</li>
+                    <li>Separate data, logs, and TempDB onto different physical disks</li>
+                    <li>Configure SQL Server settings appropriately for Hyper-V</li>
+                    <li>Monitor key performance counters regularly</li>
+                </ul>
+            </div>
+
+            <div class="info-box">
+                <strong>Best Practice Workflow:</strong>
+                <ol>
+                    <li>Establish performance baselines</li>
+                    <li>Identify the bottleneck (CPU, Memory, Disk I/O, Network)</li>
+                    <li>Apply targeted optimizations</li>
+                    <li>Re-measure and validate improvements</li>
+                    <li>Document changes for future reference</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2024 Epicor ERP on Hyper-V Performance Guide</p>
+        <p>Solution Architect Reference Documentation</p>
+    </div>
+
+    <script>
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add copy button to code blocks
+        document.querySelectorAll('.code-block').forEach(block => {
+            const button = document.createElement('button');
+            button.innerHTML = '📋 Copy';
+            button.style.cssText = `
+                position: absolute;
+                right: 10px;
+                top: 10px;
+                background: #667eea;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 3px;
+                cursor: pointer;
+                font-size: 0.85rem;
+            `;
+            
+            button.addEventListener('click', () => {
+                const code = block.querySelector('code').textContent;
+                navigator.clipboard.writeText(code).then(() => {
+                    button.innerHTML = '✅ Copied!';
+                    setTimeout(() => {
+                        button.innerHTML = '📋 Copy';
+                    }, 2000);
+                });
+            });
+            
+            block.style.position = 'relative';
+            block.appendChild(button);
+        });
+
+        // Highlight current section in navigation
+        const sections = document.querySelectorAll('.section');
+        const navLinks = document.querySelectorAll('nav a');
+        
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (pageYOffset >= sectionTop - 100) {
+                    current = section.getAttribute('id');
+                }
+            });
+            
+            navLinks.forEach(link => {
+                link.style.background = '';
+                if (link.getAttribute('href') === '#' + current) {
+                    link.style.background = '#f0f0f0';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
